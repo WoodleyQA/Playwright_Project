@@ -20,6 +20,7 @@ async function getElementText(locator: Locator): Promise<string> {
   return await locator.innerText();
 }
 
+
 2. **Types, Interfaces & Custom Type Aliases**
 
 Why It Matters: Ensures test data, API payloads, and component props are strictly typed across your tests.
@@ -32,6 +33,7 @@ Example: interface TestUser {
 }
 
 const user: TestUser = { username: 'testuser', email: 'test@example.com' };
+
 
 **3.Classes, Modifiers, and this (Page Object Model)**
 
