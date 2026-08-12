@@ -1,0 +1,23 @@
+{
+  "name": "playwright_project",
+  "version": "1.0.0",
+  "description": "This project uses playwright to automate the essential workflows on etsy",
+  "main": "index.js",
+  "devDependencies": {
+    "@playwright/test": "^1.62.1",
+    "@types/node": "^26.2.0"
+  },
+  "scripts": {},
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/WoodleyQA/Playwright_Project.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/WoodleyQA/Playwright_Project/issues"
+  },
+  "homepage": "https://github.com/WoodleyQA/Playwright_Project#readme"
+}
