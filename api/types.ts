@@ -17,6 +17,10 @@ export interface CreateBookingResponse {
   booking: Booking;
 }
 
+export interface BookingId {
+  bookingid: number;
+}
+
 export interface AuthResponse {
   token?: string;
   reason?: string;
