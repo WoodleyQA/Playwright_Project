@@ -33,23 +33,23 @@ export class ApiClient {
     return this.request.post('/booking', { data: booking });
   }
 
-  updateBooking(id: number, booking: Booking, token: string): Promise<APIResponse> {
+  updateBooking(id: number, booking: Booking, token?: string): Promise<APIResponse> {
     return this.request.put(`/booking/${id}`, {
       data: booking,
-      headers: { Cookie: `token=${token}` },
+      headers: token ? { Cookie: `token=${token}` } : undefined,
     });
   }
 
-  partialUpdateBooking(id: number, booking: Partial<Booking>, token: string): Promise<APIResponse> {
+  partialUpdateBooking(id: number, booking: Partial<Booking>, token?: string): Promise<APIResponse> {
     return this.request.patch(`/booking/${id}`, {
       data: booking,
-      headers: { Cookie: `token=${token}` },
+      headers: token ? { Cookie: `token=${token}` } : undefined,
     });
   }
 
-  deleteBooking(id: number, token: string): Promise<APIResponse> {
+  deleteBooking(id: number, token?: string): Promise<APIResponse> {
     return this.request.delete(`/booking/${id}`, {
-      headers: { Cookie: `token=${token}` },
+      headers: token ? { Cookie: `token=${token}` } : undefined,
     });
   }
 }
