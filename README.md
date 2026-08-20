@@ -16,16 +16,20 @@ Worth noting: these are two separate demo projects by the same author, not one a
 
 ## Structure
 
+```text
 pages/       Page Objects for UI tests
 api/         Request client + types for API tests
 tests/ui/    UI test specs
 tests/api/   API test specs
+```
 
 ## Running it
 
+```bash
 npm install
 npx playwright install
 npx playwright test
+```
 
 CI runs on GitHub Actions against Chromium, Firefox, and WebKit on every push and PR.
 
