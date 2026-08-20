@@ -1,5 +1,5 @@
 # Playwright_Project
-This project uses playwright to automate the essential workflows on etsy
+This project uses Playwright to test the [restful-booker](https://restful-booker.herokuapp.com) UI demo and REST API, following the Page Object Model (POM) for UI pages and a request wrapper client for API calls.
 
 
 To-Do List

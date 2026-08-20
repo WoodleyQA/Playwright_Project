@@ -25,27 +25,35 @@ export default defineConfig({
   reporter: 'html',
   /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
   use: {
-    /* Base URL to use in actions like `await page.goto('')`. */
-    // baseURL: 'http://localhost:3000',
+    /* Base URL to use in actions like `await page.goto('')` and API requests. */
+    baseURL: 'https://restful-booker.herokuapp.com',
 
     /* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
     trace: 'on-first-retry',
   },
 
-  /* Configure projects for major browsers */
+  /* Configure projects for API tests and UI tests across major browsers */
   projects: [
     {
+      name: 'api',
+      testDir: './tests/api',
+    },
+
+    {
       name: 'chromium',
+      testDir: './tests/ui',
       use: { ...devices['Desktop Chrome'] },
     },
 
     {
       name: 'firefox',
+      testDir: './tests/ui',
       use: { ...devices['Desktop Firefox'] },
     },
 
     {
       name: 'webkit',
+      testDir: './tests/ui',
       use: { ...devices['Desktop Safari'] },
     },
 
