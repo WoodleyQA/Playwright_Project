@@ -1,58 +1,34 @@
-# Playwright_Project
-This project uses Playwright to test the [restful-booker](https://restful-booker.herokuapp.com) UI demo and REST API, following the Page Object Model (POM) for UI pages and a request wrapper client for API calls.
+# Playwright Test Automation
 
+A Playwright + TypeScript project covering both UI and API test automation in a single framework, structured around the Page Object Model.
 
-To-Do List
+## Why this exists
 
-Set up local project ✅
-Clone repo ✅
-Familiarize with core concepts of Typescript (TS) such as:
+Most teams end up running separate tools for UI and API testing — Selenium or Cypress for the browser, something else entirely for the API layer. Playwright supports both natively, which means one framework, one config, one CI pipeline, instead of maintaining two. This project is built around that idea: proving out UI and API coverage together, not as separate exercises.
 
+## What's tested
 
-1. **async / await and Promises**
-Why It Matters: E2E testing relies heavily on asynchronous browser interactions (network requests, page loads, rendering UI elements).
+**UI** — [automationintesting.online](https://automationintesting.online), a booking demo site. Covers the homepage, submitting a reservation, and admin login, using Page Objects to keep locators and interactions out of the test files themselves.
 
-How It's Used: Knowing how TypeScript handles Promise<T> return types ensures every Playwright action properly resolves before executing the next step, preventing flaky tests.
+**API** — [restful-booker](https://restful-booker.herokuapp.com), a standalone REST API for the same domain (bookings). Full CRUD coverage — auth token flow, create/read/update/delete on bookings, and checks that auth-protected endpoints actually reject unauthenticated requests.
 
-Example:
+Worth noting: these are two separate demo projects by the same author, not one app tested two ways. They share a booking-domain theme, which is why they pair well here, but the UI and API suites aren't hitting the same backend.
 
-async function getElementText(locator: Locator): Promise<string> {
-  return await locator.innerText();
-}
+## Structure
 
+pages/       Page Objects for UI tests
+api/         Request client + types for API tests
+tests/ui/    UI test specs
+tests/api/   API test specs
 
-2. **Types, Interfaces & Custom Type Aliases**
+## Running it
 
-Why It Matters: Ensures test data, API payloads, and component props are strictly typed across your tests.
+npm install
+npx playwright install
+npx playwright test
 
-How It's Used: Defining interfaces for test fixtures, API request bodies, or user profile objects prevents typos in field names and gives you autocomplete in VS Code.
+CI runs on GitHub Actions against Chromium, Firefox, and WebKit on every push and PR.
 
-Example: interface TestUser {
-  username: string;
-  email: string;
-}
+## Notes
 
-const user: TestUser = { username: 'testuser', email: 'test@example.com' };
-
-
-**3.Classes, Modifiers, and this (Page Object Model)**
-
-Why It Matters: The Page Object Model (POM) is the backbone of scalable E2E test suites, encapsulating page elements and actions into reusable classes.
-
-How It's Used: Understanding class constructors, private class fields (private readonly), and methods allows you to group locators and page interactions cleanly.
-
-Example:
-import { Page, Locator } from '@playwright/test';
-
-export class HomePage {
-  private readonly searchInput: Locator;
-
-  constructor(private page: Page) {
-    this.searchInput = page.locator('#global-enhancements-search-query');
-  }
-
-  async searchForProduct(term: string) {
-    await this.searchInput.fill(term);
-    await this.searchInput.press('Enter');
-  }
-}
+Built iteratively — scaffold, API suite, UI suite, each as its own branch and PR, with CI gating merges to main. That's intentional: it mirrors how I'd actually want to work on a real team, not just script something end to end and dump it in one commit.
