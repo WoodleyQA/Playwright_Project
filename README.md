@@ -17,6 +17,25 @@ Most teams end up running separate tools for UI and API testing — Selenium or 
 
 Worth noting: these are two separate demo projects by the same author, not one app tested two ways. They share a booking-domain theme, which is why they pair well here, but the UI and API suites aren't hitting the same backend.
 
+## Known API behaviors surfaced by negative testing
+
+Writing negative tests against restful-booker's live API surfaced a few
+real quirks worth documenting rather than silently working around:
+
+- **Auth never returns 4xx.** `POST /auth` with bad credentials still
+  returns `200`, with `{ "reason": "Bad credentials" }` and no token.
+  Tests assert on that actual response shape instead of a 4xx status
+  the API never sends.
+- **Missing required fields on booking creation return `500`,** not a
+  graceful `400`. Treated as a documented finding, not a bug in this
+  test suite.
+- **Type mismatches aren't validated.** Sending `totalprice` as a
+  string instead of a number is silently accepted with a `200`.
+
+None of these were "fixed" in the tests — they're asserted as the
+API's actual behavior, since faking a 4xx that never arrives would
+just produce a permanently-failing test.
+
 ## Structure
 
 ```text
