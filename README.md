@@ -1,3 +1,6 @@
+
+[![Playwright CI](https://github.com/WoodleyQA/Playwright_Project/actions/workflows/playwright.yml/badge.svg)](https://github.com/WoodleyQA/Playwright_Project/actions/workflows/playwright.yml)
+
 # Playwright Test Automation
 
 A Playwright + TypeScript project covering both UI and API test automation in a single framework, structured around the Page Object Model.
