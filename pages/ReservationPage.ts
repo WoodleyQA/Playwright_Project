@@ -18,6 +18,7 @@ export class ReservationPage extends BasePage {
   readonly phoneInput: Locator;
   readonly confirmationHeading: Locator;
   readonly confirmationDates: Locator;
+  readonly validationErrors: Locator;
 
   constructor(page: Page) {
     super(page);
@@ -29,6 +30,10 @@ export class ReservationPage extends BasePage {
     this.phoneInput = page.getByRole('textbox', { name: 'Phone' });
     this.confirmationHeading = page.getByRole('heading', { name: 'Booking Confirmed' });
     this.confirmationDates = page.getByText(/^\d{4}-\d{2}-\d{2} - \d{4}-\d{2}-\d{2}$/);
+    // Scoped to the Bootstrap validation alert specifically - a plain
+    // getByRole('alert') also matches Next.js's always-present, invisible
+    // route-announcer live region (#__next-route-announcer__).
+    this.validationErrors = page.locator('.alert-danger');
   }
 
   async open(roomId: number, checkin: string, checkout: string) {
@@ -48,5 +53,9 @@ export class ReservationPage extends BasePage {
 
   async submit() {
     await this.reserveNowButton.click();
+  }
+
+  async validationErrorMessages(): Promise<string[]> {
+    return this.validationErrors.locator('li').allTextContents();
   }
 }
