@@ -12,6 +12,12 @@ export class ApiClient {
     return this.request.post('/auth', { data: { username, password } });
   }
 
+  // Bypasses the typed username/password signature above so tests can send
+  // malformed payloads (e.g. missing fields entirely) to /auth.
+  authenticateRaw(payload: unknown): Promise<APIResponse> {
+    return this.request.post('/auth', { data: payload });
+  }
+
   async createToken(username: string, password: string): Promise<string> {
     const response = await this.authenticate(username, password);
     const body: AuthResponse = await response.json();
@@ -31,6 +37,12 @@ export class ApiClient {
 
   createBooking(booking: Booking): Promise<APIResponse> {
     return this.request.post('/booking', { data: booking });
+  }
+
+  // Bypasses the typed Booking signature above so tests can send malformed
+  // payloads (missing fields, wrong-typed fields) to POST /booking.
+  createBookingRaw(payload: unknown): Promise<APIResponse> {
+    return this.request.post('/booking', { data: payload });
   }
 
   updateBooking(id: number, booking: Booking, token?: string): Promise<APIResponse> {
