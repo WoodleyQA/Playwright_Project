@@ -36,6 +36,19 @@ npx playwright test
 
 CI runs on GitHub Actions against Chromium, Firefox, and WebKit on every push and PR.
 
+## Real API behavior found via negative testing
+
+`tests/api/negative.spec.ts` probes restful-booker's edge cases directly rather than assuming textbook REST semantics, and the live API doesn't always behave the way you'd expect:
+
+- `POST /auth` always returns **200**, even for a bad username, bad password, or a completely empty body. There's no 4xx to check — the only failure signal is `{ reason: "Bad credentials" }` in the body with no `token`.
+- `POST /booking` with required fields missing doesn't validate — it returns **500 Internal Server Error** (a server-side crash, not a graceful 4xx). Confirmed consistent across repeated calls.
+- `POST /booking` with `totalprice` sent as a string isn't rejected — it's silently coerced to `null` and still returns 200.
+- An invalid date range (checkout before checkin) isn't validated at all — accepted and echoed back as-is with 200.
+- `PUT`/`DELETE` on a booking without a token both return **403** (not 401), and a rejected `DELETE` leaves the booking intact.
+- `GET` on a non-existent booking id returns 404, as expected.
+
+These aren't bugs in the tests — they're documented findings about the real API, which is the point of the negative suite.
+
 ## Notes
 
 Built iteratively — scaffold, API suite, UI suite, each as its own branch and PR, with CI gating merges to main. That's intentional: it mirrors how I'd actually want to work on a real team, not just script something end to end and dump it in one commit.
