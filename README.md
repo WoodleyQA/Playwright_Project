@@ -55,6 +55,19 @@ npx playwright test
 
 CI runs on GitHub Actions against Chromium, Firefox, and WebKit on every push and PR.
 
+## Self-healing locator proof of concept (requires ANTHROPIC_API_KEY)
+
+`tests/ui/self-healing-locator.spec.ts` is the one test in this suite that makes a live call to the Anthropic API — everything else here only talks to restful-booker or automationintesting.online. It intentionally uses a broken locator, catches the resulting Playwright timeout, sends an accessibility snapshot of the page to Claude, and retries with the role/name Claude suggests.
+
+To run it, set `ANTHROPIC_API_KEY` in your environment:
+
+```bash
+export ANTHROPIC_API_KEY=sk-ant-...
+npx playwright test tests/ui/self-healing-locator.spec.ts
+```
+
+Without a key set, the test **skips** rather than failing or running against a mocked response — CI does not have this key, so it skips there too. See the comment block at the top of the file for why: a mocked LLM response would only prove the retry plumbing works, not that a real model can actually resolve a broken locator, which is the point of the test. It's also explicitly a proof of concept, not a pattern to copy into the rest of the suite — no caching, no confidence thresholds, no fallback chains, and every self-healing attempt adds real API latency and cost on top of the normal Playwright action.
+
 ## Real API behavior found via negative testing
 
 `tests/api/negative.spec.ts` probes restful-booker's edge cases directly rather than assuming textbook REST semantics, and the live API doesn't always behave the way you'd expect:
