@@ -41,7 +41,7 @@ test.describe('Shady Meadows B&B homepage', () => {
     const reservation = new ReservationPage(page);
     await home.open();
 
-    await home.bookNowLink('Single').click();
+    await home.assertAndClick(home.bookNowLink('Single'));
 
     await expect(page).toHaveURL(/\/reservation\/1/);
     await expect(reservation.roomHeading).toHaveText('Single Room');

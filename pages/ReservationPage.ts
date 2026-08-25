@@ -52,7 +52,7 @@ export class ReservationPage extends BasePage {
   }
 
   async submit() {
-    await this.reserveNowButton.click();
+    await this.assertAndClick(this.reserveNowButton);
   }
 
   async validationErrorMessages(): Promise<string[]> {
