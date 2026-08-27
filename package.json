@@ -4,6 +4,7 @@
   "description": "This project uses Playwright to test the restful-booker UI demo and REST API",
   "main": "index.js",
   "devDependencies": {
+    "@anthropic-ai/sdk": "^0.120.0",
     "@playwright/test": "^1.62.1",
     "@types/node": "^26.2.0"
   },
