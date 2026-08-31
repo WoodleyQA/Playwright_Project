@@ -68,6 +68,20 @@ npx playwright test tests/ui/self-healing-locator.spec.ts
 
 Without a key set, the test **skips** rather than failing or running against a mocked response — CI does not have this key, so it skips there too. See the comment block at the top of the file for why: a mocked LLM response would only prove the retry plumbing works, not that a real model can actually resolve a broken locator, which is the point of the test. It's also explicitly a proof of concept, not a pattern to copy into the rest of the suite — no caching, no confidence thresholds, no fallback chains, and every self-healing attempt adds real API latency and cost on top of the normal Playwright action.
 
+## Failure triage agent (requires ANTHROPIC_API_KEY)
+
+`scripts/triage-agent.js` sends a test failure's error output to Claude and classifies it as a `regression`, `environmental flake`, or `stale test`, with confidence, reasoning, and a suggested next step. It's a standalone CLI tool, not part of the Playwright suite itself — same `ANTHROPIC_API_KEY` requirement as the self-healing locator proof of concept.
+
+```bash
+export ANTHROPIC_API_KEY=sk-ant-...
+
+# Classify every failure in a Playwright JSON reporter output file
+npm run triage -- --report path/to/report.json
+
+# Or classify a single failure's error/stack trace directly, for ad-hoc use
+npm run triage -- --error "Error: expect(page).toHaveURL(...) failed ..."
+```
+
 ## Real API behavior found via negative testing
 
 `tests/api/negative.spec.ts` probes restful-booker's edge cases directly rather than assuming textbook REST semantics, and the live API doesn't always behave the way you'd expect:

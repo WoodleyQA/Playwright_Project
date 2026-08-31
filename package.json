@@ -11,7 +11,8 @@
   "scripts": {
     "test": "playwright test",
     "test:ui": "playwright test --project=chromium --project=firefox --project=webkit",
-    "test:api": "playwright test --project=api"
+    "test:api": "playwright test --project=api",
+    "triage": "node scripts/triage-agent.js"
   },
   "repository": {
     "type": "git",
