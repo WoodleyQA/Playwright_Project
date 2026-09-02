@@ -59,6 +59,8 @@ CI runs on GitHub Actions against Chromium, Firefox, and WebKit on every push an
 
 `tests/ui/self-healing-locator.spec.ts` is the one test in this suite that makes a live call to the Anthropic API — everything else here only talks to restful-booker or automationintesting.online. It intentionally uses a broken locator, catches the resulting Playwright timeout, sends an accessibility snapshot of the page to Claude, and retries with the role/name Claude suggests.
 
+On a successful run it caches the target locator's accessibility snapshot to `self-heal/locator-cache.json`, keyed by test name and locator source string (the entry is invalidated if the locator string changes). On a heal, both that last-known-good snapshot and the current page snapshot are sent to Claude, which is asked to judge whether a candidate is the *same* element as before — not just the closest match right now — and to return a confidence score plus rationale alongside the role/name. A heal below `CONFIDENCE_THRESHOLD` (0.7) throws instead of clicking a low-confidence guess. Every attempt — healed, rejected, or failed — is appended to a JSON audit log at `self-heal/audit-log.json`.
+
 To run it, set `ANTHROPIC_API_KEY` in your environment:
 
 ```bash
@@ -66,7 +68,7 @@ export ANTHROPIC_API_KEY=sk-ant-...
 npx playwright test tests/ui/self-healing-locator.spec.ts
 ```
 
-Without a key set, the test **skips** rather than failing or running against a mocked response — CI does not have this key, so it skips there too. See the comment block at the top of the file for why: a mocked LLM response would only prove the retry plumbing works, not that a real model can actually resolve a broken locator, which is the point of the test. It's also explicitly a proof of concept, not a pattern to copy into the rest of the suite — no caching, no confidence thresholds, no fallback chains, and every self-healing attempt adds real API latency and cost on top of the normal Playwright action.
+Without a key set, the test **skips** rather than failing or running against a mocked response — CI does not have this key, so it skips there too. See the comment block at the top of the file for why: a mocked LLM response would only prove the retry plumbing works, not that a real model can actually resolve a broken locator, which is the point of the test. It's also explicitly a proof of concept, not a pattern to copy into the rest of the suite — no fallback chains beyond a single candidate, and every self-healing attempt still adds real API latency and cost on top of the normal Playwright action.
 
 ## Failure triage agent (requires ANTHROPIC_API_KEY)
 
