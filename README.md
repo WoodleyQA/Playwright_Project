@@ -1,4 +1,3 @@
-
 [![Playwright CI](https://github.com/WoodleyQA/Playwright_Project/actions/workflows/playwright.yml/badge.svg)](https://github.com/WoodleyQA/Playwright_Project/actions/workflows/playwright.yml)
 
 # Playwright Test Automation
@@ -9,6 +8,16 @@ A Playwright + TypeScript project covering both UI and API test automation in a 
 
 Most teams end up running separate tools for UI and API testing — Selenium or Cypress for the browser, something else entirely for the API layer. Playwright supports both natively, which means one framework, one config, one CI pipeline, instead of maintaining two. This project is built around that idea: proving out UI and API coverage together, not as separate exercises.
 
+## Design philosophy
+
+Three things in here share a thesis: don't assume, don't guess, verify before you trust.
+
+- **Negative testing** (below) probes real API/UI behavior instead of assuming textbook REST semantics or graceful validation — and asserts what the system actually does, including its failure modes.
+- **Self-healing locators** (POC) only auto-accept a repaired locator above a confidence threshold — a shaky match gets flagged, not silently trusted.
+- **Failure triage agent** classifies a test failure as regression/flake/stale-test with reasoning attached, instead of leaving that judgment call to whoever's skimming CI logs.
+
+Same instinct that drives [eval-harness](https://github.com/WoodleyQA/eval-harness) — a system shouldn't trust its own output without evidence — applied here to test automation instead of LLM claim-checking.
+
 ## What's tested
 
 **UI** — [automationintesting.online](https://automationintesting.online), a booking demo site. Covers the homepage, submitting a reservation, and admin login, using Page Objects to keep locators and interactions out of the test files themselves.
@@ -17,25 +26,6 @@ Most teams end up running separate tools for UI and API testing — Selenium or 
 
 Worth noting: these are two separate demo projects by the same author, not one app tested two ways. They share a booking-domain theme, which is why they pair well here, but the UI and API suites aren't hitting the same backend.
 
-## Known API behaviors surfaced by negative testing
-
-Writing negative tests against restful-booker's live API surfaced a few
-real quirks worth documenting rather than silently working around:
-
-- **Auth never returns 4xx.** `POST /auth` with bad credentials still
-  returns `200`, with `{ "reason": "Bad credentials" }` and no token.
-  Tests assert on that actual response shape instead of a 4xx status
-  the API never sends.
-- **Missing required fields on booking creation return `500`,** not a
-  graceful `400`. Treated as a documented finding, not a bug in this
-  test suite.
-- **Type mismatches aren't validated.** Sending `totalprice` as a
-  string instead of a number is silently accepted with a `200`.
-
-None of these were "fixed" in the tests — they're asserted as the
-API's actual behavior, since faking a 4xx that never arrives would
-just produce a permanently-failing test.
-
 ## Structure
 
 ```text
@@ -43,6 +33,7 @@ pages/       Page Objects for UI tests
 api/         Request client + types for API tests
 tests/ui/    UI test specs
 tests/api/   API test specs
+scripts/     Standalone tooling (failure triage agent)
 ```
 
 ## Running it
@@ -82,30 +73,30 @@ npm run triage -- --report path/to/report.json
 npm run triage -- --error "Error: expect(page).toHaveURL(...) failed ..."
 ```
 
-## Real API behavior found via negative testing
+This follows the same thesis as [eval-harness](https://github.com/WoodleyQA/eval-harness): don't guess, judge and explain. Just as eval-harness classifies each claim as supported/unsupported with a required rationale, `triage-agent.js` classifies each failure with confidence and reasoning attached — structured judgment over raw output, applied to a different failure mode.
 
-`tests/api/negative.spec.ts` probes restful-booker's edge cases directly rather than assuming textbook REST semantics, and the live API doesn't always behave the way you'd expect:
+## Known behaviors surfaced by negative testing
 
-- `POST /auth` always returns **200**, even for a bad username, bad password, or a completely empty body. There's no 4xx to check — the only failure signal is `{ reason: "Bad credentials" }` in the body with no `token`.
-- `POST /booking` with required fields missing doesn't validate — it returns **500 Internal Server Error** (a server-side crash, not a graceful 4xx). Confirmed consistent across repeated calls.
-- `POST /booking` with `totalprice` sent as a string isn't rejected — it's silently coerced to `null` and still returns 200.
+Both suites intentionally probe real API/UI edge cases rather than assuming ideal behavior — and assert what the system actually does, not what it should do.
+
+**API** (`tests/api/negative.spec.ts`) — against restful-booker:
+
+- `POST /auth` always returns **200**, even for a bad username, bad password, or a completely empty body. No 4xx to check — the only failure signal is `{ reason: "Bad credentials" }` in the body with no token.
+- `POST /booking` with required fields missing returns **500 Internal Server Error**, not a graceful 400. Confirmed consistent across repeated calls.
+- `POST /booking` with `totalprice` sent as a string isn't rejected — silently coerced to `null`, still returns 200.
 - An invalid date range (checkout before checkin) isn't validated at all — accepted and echoed back as-is with 200.
-- `PUT`/`DELETE` on a booking without a token both return **403** (not 401), and a rejected `DELETE` leaves the booking intact.
+- `PUT`/`DELETE` without a token both return **403** (not 401), and a rejected `DELETE` leaves the booking intact.
 - `GET` on a non-existent booking id returns 404, as expected.
 
-These aren't bugs in the tests — they're documented findings about the real API, which is the point of the negative suite.
+**UI** (`tests/ui/validation.spec.ts`) — against automationintesting.online:
 
-## Real UI behavior found via negative testing
-
-`tests/ui/validation.spec.ts` does the same thing on the UI side — probing the live automationintesting.online reservation and admin login forms rather than assuming they behave ideally:
-
-- Blank required fields and a malformed email **are** validated properly — the guest details form shows a visible Bootstrap alert (e.g. "Firstname should not be blank", "must be a well-formed email address") and never reaches a success state.
+- Blank required fields and a malformed email **are** validated properly — a visible Bootstrap alert appears (e.g. "Firstname should not be blank") and the form never reaches a success state.
 - The **Phone field isn't actually type-checked** — only its length (11–21 characters) is validated server-side. A value made entirely of letters is accepted and the booking completes successfully.
-- An **invalid date range (checkout before checkin) isn't validated client-side at all** — the price summary even displays a negative night count. On submit, the backend returns 409, which the frontend has no handler for — it crashes into Next.js's generic "This page couldn't load" error boundary instead of showing a validation message.
-- Admin login with the wrong password correctly shows "Invalid credentials," stays on `/admin`, and no dashboard-only element (e.g. the rooms table) ever becomes visible.
+- An **invalid date range isn't validated client-side at all** — the price summary even displays a negative night count. On submit, the backend returns 409, which the frontend has no handler for — it crashes into Next.js's generic "This page couldn't load" error boundary instead of showing a validation message.
+- Admin login with the wrong password correctly shows "Invalid credentials," stays on `/admin`, and no dashboard-only element ever becomes visible.
 
-As with the API suite, these are asserted as the site's actual behavior — including the crash on an invalid date range — rather than adjusted to assert the friendlier outcome that would ideally happen instead.
+None of these were "fixed" in the tests — they're asserted as the system's actual behavior, including the crash on an invalid date range, rather than adjusted to assert the friendlier outcome that would ideally happen instead.
 
 ## Notes
 
-Built iteratively — scaffold, API suite, UI suite, each as its own branch and PR, with CI gating merges to main. That's intentional: it mirrors how I'd actually want to work on a real team, not just script something end to end and dump it in one commit.
+Built iteratively — scaffold, API suite, UI suite, each as its own branch and PR, with CI gating merges to main. That's intentional: it mirrors how I'd actually want to work on a real team, not just script something end-to-end and dump it in one commit.
