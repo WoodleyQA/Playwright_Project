@@ -31,8 +31,9 @@ Worth noting: these are two separate demo projects by the same author, not one a
 ```text
 pages/       Page Objects for UI tests
 api/         Request client + types for API tests
+utils/       Shared test helpers (e.g. collision-safe date-range generation)
 tests/ui/    UI test specs
-tests/api/   API test specs
+tests/api/   API test specs, plus fixtures.ts (booking create/cleanup fixture)
 scripts/     Standalone tooling (failure triage agent)
 ```
 
@@ -96,6 +97,10 @@ Both suites intentionally probe real API/UI edge cases rather than assuming idea
 - Admin login with the wrong password correctly shows "Invalid credentials," stays on `/admin`, and no dashboard-only element ever becomes visible.
 
 None of these were "fixed" in the tests — they're asserted as the system's actual behavior, including the crash on an invalid date range, rather than adjusted to assert the friendlier outcome that would ideally happen instead.
+
+## Known limitations
+
+- **UI-created bookings are not cleaned up after test runs.** The API suite creates and deletes its own bookings via `ApiClient.deleteBooking()` (see `tests/api/fixtures.ts`), but the UI suite has no equivalent teardown — the admin panel's automated surface doesn't expose a way to delete a booking, and whether one exists elsewhere on the site is unconfirmed. Bookings the UI suite submits are left in place on the shared demo instance; the collision-safe date range in `utils/dateHelpers.ts` keeps them from colliding with each other, but doesn't clean them up.
 
 ## Notes
 
