@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { expect, test } from './fixtures';
 import { ApiClient } from '../../api/ApiClient';
 import { sampleBooking } from './testData';
 
@@ -42,15 +42,7 @@ test.describe('POST /auth - negative cases', () => {
 });
 
 test.describe('POST /booking - edge cases', () => {
-  let client: ApiClient;
-  let token: string;
-
-  test.beforeEach(async ({ request }) => {
-    client = new ApiClient(request);
-    token = await client.createToken('admin', 'password123');
-  });
-
-  test('missing required fields fails server-side rather than validating', async () => {
+  test('missing required fields fails server-side rather than validating', async ({ client }) => {
     const response = await client.createBookingRaw({});
 
     // The API has no request validation for this endpoint - an empty
@@ -58,7 +50,7 @@ test.describe('POST /booking - edge cases', () => {
     expect(response.status()).toBe(500);
   });
 
-  test('an invalid type for a numeric field is silently coerced, not rejected', async () => {
+  test('an invalid type for a numeric field is silently coerced, not rejected', async ({ client, token }) => {
     const payload = { ...sampleBooking(), totalprice: 'not-a-number' };
 
     const response = await client.createBookingRaw(payload);
@@ -70,58 +62,41 @@ test.describe('POST /booking - edge cases', () => {
     await client.deleteBooking(body.bookingid, token);
   });
 
-  test('an invalid date range (checkout before checkin) is accepted without validation', async () => {
-    const booking = sampleBooking({ bookingdates: { checkin: '2027-01-10', checkout: '2027-01-01' } });
+  test('an invalid date range (checkout before checkin) is accepted without validation', async ({ createBooking }) => {
+    const overrides = { bookingdates: { checkin: '2027-01-10', checkout: '2027-01-01' } };
 
-    const response = await client.createBooking(booking);
+    const { response, body } = await createBooking(overrides);
 
     expect(response.status()).toBe(200);
-    const body = await response.json();
-    expect(body.booking).toEqual(booking);
-
-    await client.deleteBooking(body.bookingid, token);
+    expect(body.booking).toEqual(sampleBooking(overrides));
   });
 });
 
 test.describe('Booking mutation without a token', () => {
-  let client: ApiClient;
-  let token: string;
-  let bookingId: number;
+  test('PUT /booking/{id} without a token is rejected, not applied', async ({ createBooking, client }) => {
+    const { body: created } = await createBooking({ firstname: 'Negative', lastname: 'Case' });
 
-  test.beforeEach(async ({ request }) => {
-    client = new ApiClient(request);
-    token = await client.createToken('admin', 'password123');
-
-    const createResponse = await client.createBooking(sampleBooking({ firstname: 'Negative', lastname: 'Case' }));
-    ({ bookingid: bookingId } = await createResponse.json());
-  });
-
-  test.afterEach(async () => {
-    await client.deleteBooking(bookingId, token);
-  });
-
-  test('PUT /booking/{id} without a token is rejected, not applied', async () => {
-    const response = await client.updateBooking(bookingId, sampleBooking({ totalprice: 999 }));
+    const response = await client.updateBooking(created.bookingid, sampleBooking({ totalprice: 999 }));
 
     expect(response.status()).toBe(403);
     expect(response.status()).not.toBe(200);
   });
 
-  test('DELETE /booking/{id} without a token is rejected, not applied', async () => {
-    const response = await client.deleteBooking(bookingId);
+  test('DELETE /booking/{id} without a token is rejected, not applied', async ({ createBooking, client }) => {
+    const { body: created } = await createBooking({ firstname: 'Negative', lastname: 'Case' });
+
+    const response = await client.deleteBooking(created.bookingid);
 
     expect(response.status()).toBe(403);
     expect(response.status()).not.toBe(200);
 
-    const getResponse = await client.getBooking(bookingId);
+    const getResponse = await client.getBooking(created.bookingid);
     expect(getResponse.status()).toBe(200);
   });
 });
 
 test.describe('GET /booking/{id} - edge cases', () => {
-  test('returns 404 for a booking id that does not exist', async ({ request }) => {
-    const client = new ApiClient(request);
-
+  test('returns 404 for a booking id that does not exist', async ({ client }) => {
     const response = await client.getBooking(999999999);
 
     expect(response.status()).toBe(404);
