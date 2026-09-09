@@ -41,13 +41,17 @@ test.describe('Response schema', () => {
 });
 
 test.describe('Data persistence', () => {
-  test('a created booking is immediately retrievable with the same data', async ({ createBooking, client }) => {
-    const { body: created } = await createBooking({ firstname: 'Persist', lastname: 'Create' });
+  test(
+    'a created booking is immediately retrievable with the same data',
+    { tag: '@smoke' },
+    async ({ createBooking, client }) => {
+      const { body: created } = await createBooking({ firstname: 'Persist', lastname: 'Create' });
 
-    const getResponse = await client.getBooking(created.bookingid);
-    expect(getResponse.status()).toBe(200);
-    await expect(getResponse.json()).resolves.toEqual(created.booking);
-  });
+      const getResponse = await client.getBooking(created.bookingid);
+      expect(getResponse.status()).toBe(200);
+      await expect(getResponse.json()).resolves.toEqual(created.booking);
+    },
+  );
 
   test('an update actually persists, not just returns 200', async ({ createBooking, client, token }) => {
     const { body: created } = await createBooking({ firstname: 'Persist', lastname: 'Update' });
