@@ -45,7 +45,16 @@ npx playwright install
 npx playwright test
 ```
 
-CI runs on GitHub Actions against Chromium, Firefox, and WebKit on every push and PR.
+## Smoke vs. regression: one gate, one safety net
+
+`.github/workflows/playwright.yml` runs two separate jobs instead of one:
+
+- **`smoke`** — a small, deliberately-chosen 3-test subset tagged `@smoke` (`npm run test:smoke`, i.e. `playwright test --grep @smoke`): one UI booking creation (`booking-reservation.spec.ts`), one API create-then-read round trip (`contract.spec.ts`'s "a created booking is immediately retrievable with the same data"), and one auth check (`auth.spec.ts`'s "returns a token for valid credentials"). Together they prove the core flow works end-to-end — a real booking can be created through the UI, the API's create/read cycle is consistent, and authentication issues a token — without running anything close to the full suite.
+- **`regression`** — the full 94-test suite (`npm test`), unchanged.
+
+**Gating rationale:** `smoke` runs on every push and pull request to `main` and is the actual merge gate — it's fast (a handful of tests, not 94) and cheap enough to block every commit without slowing anyone down. `regression` does **not** run on pull requests anymore; it only runs after a merge lands on `main` (`push`) and on a nightly schedule (`0 2 * * *`). Full regression is slower and doesn't need to gate every commit — running it post-merge and nightly still catches anything the smoke subset didn't cover, just before the next release rather than before every single PR.
+
+This means a PR can merge on smoke passing alone; a real regression only surfaces after the merge (or overnight), rather than blocking the PR itself.
 
 ## Self-healing locator proof of concept (requires ANTHROPIC_API_KEY)
 

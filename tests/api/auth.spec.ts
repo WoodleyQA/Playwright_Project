@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 import { ApiClient } from '../../api/ApiClient';
 
 test.describe('POST /auth', () => {
-  test('returns a token for valid credentials', async ({ request }) => {
+  test('returns a token for valid credentials', { tag: '@smoke' }, async ({ request }) => {
     const client = new ApiClient(request);
 
     const response = await client.authenticate('admin', 'password123');

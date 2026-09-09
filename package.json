@@ -10,6 +10,7 @@
   },
   "scripts": {
     "test": "playwright test",
+    "test:smoke": "playwright test --grep @smoke",
     "test:ui": "playwright test --project=chromium --project=firefox --project=webkit",
     "test:api": "playwright test --project=api",
     "triage": "node scripts/triage-agent.js"

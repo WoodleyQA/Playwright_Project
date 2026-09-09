@@ -5,7 +5,7 @@ import { generateBookingDates } from '../../utils/dateHelpers';
 const DOUBLE_ROOM_ID = 2;
 
 test.describe('Reservation form', () => {
-  test('submits a booking request and shows a confirmation', async ({ page }) => {
+  test('submits a booking request and shows a confirmation', { tag: '@smoke' }, async ({ page }) => {
     const { checkin, checkout } = generateBookingDates();
     const reservation = new ReservationPage(page);
     await reservation.open(DOUBLE_ROOM_ID, checkin, checkout);
