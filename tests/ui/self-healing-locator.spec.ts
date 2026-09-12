@@ -204,10 +204,12 @@ test.describe('Self-healing locator (proof of concept)', () => {
     // reasons: it's needless 3x API cost/latency for a POC that isn't
     // testing browser-specific rendering, and this test holds the admin
     // login form open for several seconds (the broken-locator timeout plus
-    // a live LLM round trip) before submitting - long enough to collide
-    // with another project's concurrent admin login on this shared demo,
-    // which appears to track "who's logged in as admin" as shared mutable
-    // state rather than isolated per-session state.
+    // a live LLM round trip) before submitting. A deliberate concurrent-login
+    // test against this shared demo account showed elevated response time
+    // under simultaneous logins (516ms vs a 456ms solo baseline, within normal variance for a public demo server) but no
+    // session invalidation or collision - both logins stayed valid and
+    // distinct. No confirmed correctness bug found; chromium-only here is a
+    // cost/latency choice, not a race-condition fix.
     test.skip(browserName !== 'chromium', 'runs once on chromium only - see comment above');
 
     const client = new Anthropic({ apiKey: ANTHROPIC_API_KEY });
