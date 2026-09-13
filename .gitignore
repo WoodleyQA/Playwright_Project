@@ -7,6 +7,3 @@ node_modules/
 /playwright/.cache/
 /playwright/.auth/
 /results.json
-
-# Self-healing locator cache + audit log (runtime state, not source)
-/self-heal/
