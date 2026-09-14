@@ -60,6 +60,23 @@ jobs:
         if: always()
         run: node scripts/flake-report.js --report results.json
 
+      # Gated on job failure() specifically, not on flake-report's
+      # flaky-test detection above - the two scripts key off different
+      # result statuses (flaky vs failed/timedOut), so a run can show
+      # flakiness in the summary without triggering triage, or vice versa.
+      # This is expected, not a bug.
+      - name: Failure triage
+        if: failure()
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          echo "## Failure triage" >> "$GITHUB_STEP_SUMMARY"
+          {
+            echo '```text'
+            node scripts/triage-agent.js --report results.json
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Upload Playwright report
         if: failure()
         uses: actions/upload-artifact@v4
@@ -111,6 +128,23 @@ jobs:
       - name: Flake report
         if: always()
         run: node scripts/flake-report.js --report results.json
+
+      # Gated on job failure() specifically, not on flake-report's
+      # flaky-test detection above - the two scripts key off different
+      # result statuses (flaky vs failed/timedOut), so a run can show
+      # flakiness in the summary without triggering triage, or vice versa.
+      # This is expected, not a bug.
+      - name: Failure triage
+        if: failure()
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          echo "## Failure triage" >> "$GITHUB_STEP_SUMMARY"
+          {
+            echo '```text'
+            node scripts/triage-agent.js --report results.json
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload Playwright report
         if: failure()
