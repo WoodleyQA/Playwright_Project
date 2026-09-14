@@ -18,7 +18,10 @@
 // tests/ui/self-healing-locator.spec.ts.
 
 const fs = require('fs');
+const path = require('path');
 const Anthropic = require('@anthropic-ai/sdk');
+
+const AUDIT_LOG_PATH = path.join(process.cwd(), 'self-heal', 'audit-log.json');
 
 const SYSTEM_PROMPT = `You are a test-failure triage assistant for a Playwright test suite. Given a
 test failure's error message and stack trace, classify it into exactly one of
@@ -120,11 +123,54 @@ function extractFailuresFromReport(reportPath) {
   return failures;
 }
 
-async function classifyFailure(client, failure) {
+// Loads the self-healing locator's audit log (written by
+// tests/ui/self-healing-locator.spec.ts). Missing file or invalid JSON is
+// not an error here - it just means no self-heal context is available,
+// identical to running without this feature at all.
+function loadAuditLog() {
+  try {
+    return JSON.parse(fs.readFileSync(AUDIT_LOG_PATH, 'utf-8'));
+  } catch {
+    return [];
+  }
+}
+
+// A failure's title is the full suite path (e.g. "Suite › Sub-suite › test
+// name"), but audit log entries are keyed by testInfo.title alone - so
+// match on the last segment, not the full joined title.
+//
+// Known limitation: matching is by testName only, not scoped by browser
+// project, so self-heal context can attach to failures that are unrelated
+// to the actual heal attempt (e.g. a different browser's fixture-setup
+// crash sharing the same test name). Not yet addressed.
+function findSelfHealEntry(auditLog, failureTitle) {
+  if (!failureTitle) {
+    return undefined;
+  }
+  const segments = failureTitle.split(' › ');
+  const testName = segments[segments.length - 1];
+  const matches = auditLog.filter((entry) => entry.testName === testName);
+  if (matches.length === 0) {
+    return undefined;
+  }
+  return matches.reduce((latest, entry) =>
+    new Date(entry.timestamp).getTime() > new Date(latest.timestamp).getTime() ? entry : latest,
+  );
+}
+
+async function classifyFailure(client, failure, auditLog) {
+  const selfHealEntry = findSelfHealEntry(auditLog, failure.title);
+
   const userContent = [
     failure.title ? `Test: ${failure.title}` : null,
     failure.file ? `File: ${failure.file}` : null,
     `Error output:\n${failure.errorText}`,
+    selfHealEntry
+      ? `Self-healing attempt on this test (additional context only - does not change the three categories above):\n` +
+        `  Outcome: ${selfHealEntry.outcome}\n` +
+        `  Confidence: ${selfHealEntry.confidence ?? 'n/a'}\n` +
+        `  Rationale: ${selfHealEntry.rationale ?? 'n/a'}`
+      : null,
   ]
     .filter(Boolean)
     .join('\n');
@@ -186,9 +232,11 @@ async function main() {
     return;
   }
 
+  const auditLog = loadAuditLog();
+
   const client = new Anthropic({ apiKey });
   for (const failure of failures) {
-    const result = await classifyFailure(client, failure);
+    const result = await classifyFailure(client, failure, auditLog);
     printTriageNote(failure, result);
   }
 }
