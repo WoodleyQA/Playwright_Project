@@ -3,12 +3,13 @@
 // the element from an accessibility snapshot, retry once. It now includes
 // a disk cache of each locator's last-known-good snapshot (so a heal is
 // judged against "is this the same element as before", not just "closest
-// match right now") and a confidence threshold (a low-confidence guess
-// throws instead of silently clicking the wrong thing), plus a JSON audit
-// log of every heal attempt. Still missing, deliberately: fallback chains
-// (only one candidate is ever tried), and every self-heal attempt still
-// adds real API latency (a network round trip to Anthropic) and real cost
-// (billed tokens) on top of the normal Playwright action.
+// match right now"), a confidence threshold (a low-confidence guess throws
+// instead of silently clicking the wrong thing), a fallback chain (2-3
+// ranked candidates are tried in confidence order until one actually
+// clicks), and a JSON audit log of every candidate attempted. Still
+// missing, deliberately: every self-heal attempt still adds real API
+// latency (a network round trip to Anthropic) and real cost (billed
+// tokens) on top of the normal Playwright action.
 //
 // Accessibility snapshot API: this uses locator.ariaSnapshot() (current in
 // Playwright 1.62.1, the version installed here — see package.json). The
@@ -26,7 +27,7 @@
 // honest representation of "this capability is untested in CI," not a
 // workaround to fake a pass.
 
-import { test, expect, errors, Page } from '@playwright/test';
+import { test, expect, errors, Locator, Page } from '@playwright/test';
 import Anthropic from '@anthropic-ai/sdk';
 import fs from 'fs';
 import path from 'path';
@@ -49,7 +50,7 @@ const SELF_HEAL_DIR = path.join(process.cwd(), 'self-heal');
 const CACHE_PATH = path.join(SELF_HEAL_DIR, 'locator-cache.json');
 const AUDIT_LOG_PATH = path.join(SELF_HEAL_DIR, 'audit-log.json');
 
-const LOCATOR_SCHEMA = {
+const CANDIDATE_SCHEMA = {
   type: 'object',
   properties: {
     role: {
@@ -75,11 +76,40 @@ const LOCATOR_SCHEMA = {
   additionalProperties: false,
 };
 
-interface HealedLocator {
+const LOCATOR_SCHEMA = {
+  type: 'object',
+  properties: {
+    candidates: {
+      type: 'array',
+      // The API's structured-output schema only supports minItems/maxItems
+      // values of 0 or 1 for array types - "2 to 3 items" isn't expressible
+      // as a schema constraint, so it's enforced by the prompt instead (see
+      // healLocator below) and defensively tolerated in the calling logic.
+      items: CANDIDATE_SCHEMA,
+      description:
+        '2 to 3 candidate elements that could be the SAME element as the one described in the prompt, ' +
+        'ordered by confidence descending (most likely match first).',
+    },
+  },
+  required: ['candidates'],
+  additionalProperties: false,
+};
+
+interface LocatorCandidate {
   role: string;
   name: string;
   confidence: number;
   rationale: string;
+}
+
+// What actually happened when a candidate was considered during the
+// fallback chain - distinct from the candidate's own confidence score,
+// which is the model's ex-ante belief, not the ex-post result.
+interface HealAttempt {
+  role: string;
+  name: string;
+  confidence: number;
+  outcome: 'skipped-low-confidence' | 'failed' | 'succeeded';
 }
 
 interface CacheEntry {
@@ -96,9 +126,7 @@ interface AuditEntry {
   locatorString: string;
   elementDescription: string;
   outcome: 'healed' | 'rejected' | 'failed';
-  confidence?: number;
-  rationale?: string;
-  healed?: { role: string; name: string };
+  attempts?: HealAttempt[];
   error?: string;
 }
 
@@ -156,7 +184,7 @@ async function healLocator(
   elementDescription: string,
   pageSnapshot: string,
   lastKnownGoodSnapshot: string | undefined,
-): Promise<HealedLocator> {
+): Promise<LocatorCandidate[]> {
   const response = await client.messages.create({
     model: 'claude-opus-5',
     max_tokens: 1024,
@@ -176,21 +204,42 @@ async function healLocator(
             : `No last-known-good snapshot is cached for this element - this may be the first run, or the ` +
               `locator's source changed since the last successful run.\n\n`) +
           `Here is the current page's full accessibility snapshot:\n${pageSnapshot}\n\n` +
-          `Find the candidate in the current snapshot that is the SAME element as the one described above - ` +
-          `matching role, accessible name, and surrounding context (e.g. same form, same section) - not just ` +
-          `the closest textual match. Elements can move, get relabeled, or sit near similarly-named ` +
-          `look-alikes; use the last-known-good snapshot (when provided) to disambiguate. Return the ARIA ` +
-          `role and accessible name for page.getByRole(role, { name }) to find it, a confidence score from 0 ` +
-          `(pure guess) to 1 (certain it's the same element), and a short rationale for that confidence.`,
+          `Identify 2 to 3 candidates in the current snapshot that could be the SAME element as the one ` +
+          `described above - matching role, accessible name, and surrounding context (e.g. same form, same ` +
+          `section) - not just the closest textual match. Elements can move, get relabeled, or sit near ` +
+          `similarly-named look-alikes; use the last-known-good snapshot (when provided) to disambiguate. For ` +
+          `each candidate, return the ARIA role and accessible name for page.getByRole(role, { name }) to find ` +
+          `it, a confidence score from 0 (pure guess) to 1 (certain it's the same element), and a short ` +
+          `rationale for that confidence. Order the candidates by confidence descending, most likely match ` +
+          `first.`,
       },
     ],
   });
 
   const textBlock = response.content.find((block) => block.type === 'text');
   if (!textBlock || textBlock.type !== 'text') {
-    throw new Error('Expected a text content block with the healed locator, got none');
+    throw new Error('Expected a text content block with the healed locator candidates, got none');
   }
-  return JSON.parse(textBlock.text) as HealedLocator;
+  const { candidates } = JSON.parse(textBlock.text) as { candidates: LocatorCandidate[] };
+  // Sort defensively - the prompt asks for descending order, but the
+  // calling logic's "first candidate that clears the threshold" strategy
+  // depends on that order actually holding, not just on the model's intent.
+  const sorted = [...candidates].sort((a, b) => b.confidence - a.confidence);
+
+  // "2 to 3 candidates" is prompt wording only, not a schema guarantee (the
+  // API rejects minItems/maxItems on arrays outside 0/1 - see LOCATOR_SCHEMA
+  // above), so the model can legally return fewer. Warn rather than throw:
+  // a single candidate that clears the confidence threshold and clicks is
+  // still a valid heal, just with no fallback if it turns out to be wrong -
+  // failing the test here would reject a heal that might otherwise succeed.
+  if (sorted.length < 2) {
+    console.warn(
+      `Self-heal: expected 2-3 candidates but got ${sorted.length} - the API doesn't enforce this via schema, ` +
+        `only via prompt wording, so fallback coverage is reduced for this heal attempt.`,
+    );
+  }
+
+  return sorted;
 }
 
 test.describe('Self-healing locator (proof of concept)', () => {
@@ -232,7 +281,7 @@ test.describe('Self-healing locator (proof of concept)', () => {
     // change.
     const brokenLoginButton = page.getByRole('button', { name: 'Log In' });
 
-    let healed: HealedLocator | undefined;
+    let healed: LocatorCandidate | undefined;
     try {
       await brokenLoginButton.click({ timeout: 5000 });
 
@@ -249,8 +298,9 @@ test.describe('Self-healing locator (proof of concept)', () => {
       const lastKnownGoodSnapshot = getCachedSnapshot(testName, locatorString);
       const pageSnapshot = await page.locator('body').ariaSnapshot();
 
+      let candidates: LocatorCandidate[];
       try {
-        healed = await healLocator(client, elementDescription, pageSnapshot, lastKnownGoodSnapshot);
+        candidates = await healLocator(client, elementDescription, pageSnapshot, lastKnownGoodSnapshot);
       } catch (healError) {
         appendAuditEntry({
           timestamp: new Date().toISOString(),
@@ -263,26 +313,66 @@ test.describe('Self-healing locator (proof of concept)', () => {
         throw healError;
       }
 
-      if (healed.confidence < CONFIDENCE_THRESHOLD) {
+      // Fallback chain: try each candidate in confidence order, skipping
+      // anything below threshold, until one actually clicks. A candidate
+      // clearing the threshold is still just a guess about identity - it
+      // can point at an element that no longer exists or isn't clickable,
+      // which is exactly what the mechanical click failure below catches.
+      const attempts: HealAttempt[] = [];
+      let succeeded: { candidate: LocatorCandidate; locator: Locator } | undefined;
+
+      for (const candidate of candidates) {
+        if (candidate.confidence < CONFIDENCE_THRESHOLD) {
+          attempts.push({
+            role: candidate.role,
+            name: candidate.name,
+            confidence: candidate.confidence,
+            outcome: 'skipped-low-confidence',
+          });
+          continue;
+        }
+
+        const candidateLocator = page.getByRole(candidate.role as AriaRole, { name: candidate.name });
+        try {
+          await candidateLocator.click({ timeout: 3000 });
+          attempts.push({
+            role: candidate.role,
+            name: candidate.name,
+            confidence: candidate.confidence,
+            outcome: 'succeeded',
+          });
+          succeeded = { candidate, locator: candidateLocator };
+          break;
+        } catch {
+          attempts.push({
+            role: candidate.role,
+            name: candidate.name,
+            confidence: candidate.confidence,
+            outcome: 'failed',
+          });
+        }
+      }
+
+      if (!succeeded) {
         appendAuditEntry({
           timestamp: new Date().toISOString(),
           testName,
           locatorString,
           elementDescription,
           outcome: 'rejected',
-          confidence: healed.confidence,
-          rationale: healed.rationale,
-          healed: { role: healed.role, name: healed.name },
+          attempts,
         });
+        const attemptSummary = attempts
+          .map((a) => `${a.role} "${a.name}" (confidence ${a.confidence.toFixed(2)}, ${a.outcome})`)
+          .join('; ');
         throw new Error(
-          `Self-heal confidence ${healed.confidence.toFixed(2)} is below the ${CONFIDENCE_THRESHOLD} ` +
-            `threshold - refusing to act on a low-confidence guess. Candidate: ${healed.role} "${healed.name}". ` +
-            `Rationale: ${healed.rationale}`,
+          `Self-heal found no usable candidate - tried ${attempts.length} of ${candidates.length} ` +
+            `candidate(s) against the ${CONFIDENCE_THRESHOLD} confidence threshold, and none both cleared it ` +
+            `and clicked successfully. Attempts: ${attemptSummary}`,
         );
       }
 
-      const healedLocator = page.getByRole(healed.role as AriaRole, { name: healed.name });
-      await healedLocator.click();
+      healed = succeeded.candidate;
 
       appendAuditEntry({
         timestamp: new Date().toISOString(),
@@ -290,16 +380,14 @@ test.describe('Self-healing locator (proof of concept)', () => {
         locatorString,
         elementDescription,
         outcome: 'healed',
-        confidence: healed.confidence,
-        rationale: healed.rationale,
-        healed: { role: healed.role, name: healed.name },
+        attempts,
       });
 
       // Heal succeeded - cache the healed element's own snapshot (not the
       // broken locator's, which never resolved) as the new last-known-good
       // baseline, still keyed under the original locator string so the
       // next run's lookup for this test/locator pair hits.
-      const healedSnapshot = await healedLocator.ariaSnapshot();
+      const healedSnapshot = await succeeded.locator.ariaSnapshot();
       setCachedSnapshot(testName, locatorString, healedSnapshot);
     }
 
