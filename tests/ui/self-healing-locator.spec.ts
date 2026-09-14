@@ -102,6 +102,24 @@ interface LocatorCandidate {
   rationale: string;
 }
 
+// Claude Sonnet 5 per-token pricing, verified live at
+// https://platform.claude.com/docs/en/about-claude/pricing on 2026-09-14:
+// $2 / MTok input, $10 / MTok output (base rates, no cache/batch discounts -
+// this call uses neither). Update these if published pricing changes.
+const SONNET_5_INPUT_COST_PER_TOKEN = 2 / 1_000_000;
+const SONNET_5_OUTPUT_COST_PER_TOKEN = 10 / 1_000_000;
+
+// One healLocator() call = one API request = one set of these figures. Cost
+// and latency are properties of that single call, not of any one candidate
+// it returns - candidates share the response, so this is not per-candidate.
+interface HealResult {
+  candidates: LocatorCandidate[];
+  latencyMs: number;
+  inputTokens: number;
+  outputTokens: number;
+  estimatedCostUsd: number;
+}
+
 // What actually happened when a candidate was considered during the
 // fallback chain - distinct from the candidate's own confidence score,
 // which is the model's ex-ante belief, not the ex-post result.
@@ -127,6 +145,13 @@ interface AuditEntry {
   elementDescription: string;
   outcome: 'healed' | 'rejected' | 'failed';
   attempts?: HealAttempt[];
+  // One heal = one API call = one set of these, so they live here rather
+  // than on individual HealAttempt entries, which share this single call's
+  // response and have no independent cost/latency of their own.
+  latencyMs?: number;
+  inputTokens?: number;
+  outputTokens?: number;
+  estimatedCostUsd?: number;
   error?: string;
 }
 
@@ -184,9 +209,10 @@ async function healLocator(
   elementDescription: string,
   pageSnapshot: string,
   lastKnownGoodSnapshot: string | undefined,
-): Promise<LocatorCandidate[]> {
+): Promise<HealResult> {
+  const startTime = Date.now();
   const response = await client.messages.create({
-    model: 'claude-opus-5',
+    model: 'claude-sonnet-5',
     max_tokens: 1024,
     output_config: {
       effort: 'low',
@@ -215,6 +241,12 @@ async function healLocator(
       },
     ],
   });
+  const latencyMs = Date.now() - startTime;
+
+  const inputTokens = response.usage.input_tokens;
+  const outputTokens = response.usage.output_tokens;
+  const estimatedCostUsd =
+    inputTokens * SONNET_5_INPUT_COST_PER_TOKEN + outputTokens * SONNET_5_OUTPUT_COST_PER_TOKEN;
 
   const textBlock = response.content.find((block) => block.type === 'text');
   if (!textBlock || textBlock.type !== 'text') {
@@ -239,7 +271,7 @@ async function healLocator(
     );
   }
 
-  return sorted;
+  return { candidates: sorted, latencyMs, inputTokens, outputTokens, estimatedCostUsd };
 }
 
 test.describe('Self-healing locator (proof of concept)', () => {
@@ -298,9 +330,9 @@ test.describe('Self-healing locator (proof of concept)', () => {
       const lastKnownGoodSnapshot = getCachedSnapshot(testName, locatorString);
       const pageSnapshot = await page.locator('body').ariaSnapshot();
 
-      let candidates: LocatorCandidate[];
+      let healResult: HealResult;
       try {
-        candidates = await healLocator(client, elementDescription, pageSnapshot, lastKnownGoodSnapshot);
+        healResult = await healLocator(client, elementDescription, pageSnapshot, lastKnownGoodSnapshot);
       } catch (healError) {
         appendAuditEntry({
           timestamp: new Date().toISOString(),
@@ -312,6 +344,8 @@ test.describe('Self-healing locator (proof of concept)', () => {
         });
         throw healError;
       }
+
+      const { candidates, latencyMs, inputTokens, outputTokens, estimatedCostUsd } = healResult;
 
       // Fallback chain: try each candidate in confidence order, skipping
       // anything below threshold, until one actually clicks. A candidate
@@ -361,6 +395,10 @@ test.describe('Self-healing locator (proof of concept)', () => {
           elementDescription,
           outcome: 'rejected',
           attempts,
+          latencyMs,
+          inputTokens,
+          outputTokens,
+          estimatedCostUsd,
         });
         const attemptSummary = attempts
           .map((a) => `${a.role} "${a.name}" (confidence ${a.confidence.toFixed(2)}, ${a.outcome})`)
@@ -381,6 +419,10 @@ test.describe('Self-healing locator (proof of concept)', () => {
         elementDescription,
         outcome: 'healed',
         attempts,
+        latencyMs,
+        inputTokens,
+        outputTokens,
+        estimatedCostUsd,
       });
 
       // Heal succeeded - cache the healed element's own snapshot (not the
