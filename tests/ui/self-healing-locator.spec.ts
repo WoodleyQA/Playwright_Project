@@ -317,10 +317,21 @@ test.describe('Self-healing locator (proof of concept)', () => {
     try {
       await brokenLoginButton.click({ timeout: 5000 });
 
+      // Capture the snapshot now, while the element still exists - it
+      // disappears once navigation completes, so this can't wait until
+      // after the verification below.
+      const goodSnapshot = await brokenLoginButton.ariaSnapshot();
+
+      // Caching now requires verified correctness, not just mechanical
+      // click success - a wrong-but-clickable heal was observed poisoning
+      // the cache, so confirm the click actually reached the real admin
+      // dashboard before trusting this snapshot as ground truth.
+      await expect(page).toHaveURL(/\/admin\/rooms/);
+      await expect(dashboard.roomNumberColumnHeader).toBeVisible();
+
       // Locator resolved on its own - record its snapshot as the new
       // last-known-good baseline so a future heal has ground truth to
       // compare against.
-      const goodSnapshot = await brokenLoginButton.ariaSnapshot();
       setCachedSnapshot(testName, locatorString, goodSnapshot);
     } catch (error) {
       if (!(error instanceof errors.TimeoutError)) {
@@ -425,16 +436,28 @@ test.describe('Self-healing locator (proof of concept)', () => {
         estimatedCostUsd,
       });
 
-      // Heal succeeded - cache the healed element's own snapshot (not the
-      // broken locator's, which never resolved) as the new last-known-good
-      // baseline, still keyed under the original locator string so the
-      // next run's lookup for this test/locator pair hits.
+      // Capture the snapshot now, while the healed element still exists -
+      // it disappears once navigation completes, so this can't wait until
+      // after the verification below.
       const healedSnapshot = await succeeded.locator.ariaSnapshot();
+
+      // Caching now requires verified correctness, not just mechanical
+      // click success - a wrong-but-clickable heal was observed poisoning
+      // the cache (e.g. a "Logout" button that also "succeeds"
+      // mechanically), so confirm the click actually reached the real
+      // admin dashboard before trusting this candidate's snapshot as
+      // ground truth.
+      await expect(page).toHaveURL(/\/admin\/rooms/);
+      await expect(dashboard.roomNumberColumnHeader).toBeVisible();
+
+      // Heal succeeded and was verified - cache the healed element's own
+      // snapshot (not the broken locator's, which never resolved) as the
+      // new last-known-good baseline, still keyed under the original
+      // locator string so the next run's lookup for this test/locator
+      // pair hits.
       setCachedSnapshot(testName, locatorString, healedSnapshot);
     }
 
     expect(healed, 'expected the broken locator to time out and trigger self-healing').toBeDefined();
-    await expect(page).toHaveURL(/\/admin\/rooms/);
-    await expect(dashboard.roomNumberColumnHeader).toBeVisible();
   });
 });
