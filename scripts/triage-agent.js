@@ -176,7 +176,7 @@ async function classifyFailure(client, failure, auditLog) {
     .join('\n');
 
   const response = await client.messages.create({
-    model: 'claude-opus-5',
+    model: 'claude-sonnet-5',
     max_tokens: 1024,
     system: SYSTEM_PROMPT,
     output_config: {

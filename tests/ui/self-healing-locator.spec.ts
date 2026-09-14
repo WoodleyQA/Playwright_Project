@@ -102,12 +102,12 @@ interface LocatorCandidate {
   rationale: string;
 }
 
-// Claude Opus 5 per-token pricing, verified live at
+// Claude Sonnet 5 per-token pricing, verified live at
 // https://platform.claude.com/docs/en/about-claude/pricing on 2026-09-14:
-// $5 / MTok input, $25 / MTok output (base rates, no cache/batch discounts -
+// $2 / MTok input, $10 / MTok output (base rates, no cache/batch discounts -
 // this call uses neither). Update these if published pricing changes.
-const OPUS_5_INPUT_COST_PER_TOKEN = 5 / 1_000_000;
-const OPUS_5_OUTPUT_COST_PER_TOKEN = 25 / 1_000_000;
+const SONNET_5_INPUT_COST_PER_TOKEN = 2 / 1_000_000;
+const SONNET_5_OUTPUT_COST_PER_TOKEN = 10 / 1_000_000;
 
 // One healLocator() call = one API request = one set of these figures. Cost
 // and latency are properties of that single call, not of any one candidate
@@ -212,7 +212,7 @@ async function healLocator(
 ): Promise<HealResult> {
   const startTime = Date.now();
   const response = await client.messages.create({
-    model: 'claude-opus-5',
+    model: 'claude-sonnet-5',
     max_tokens: 1024,
     output_config: {
       effort: 'low',
@@ -246,7 +246,7 @@ async function healLocator(
   const inputTokens = response.usage.input_tokens;
   const outputTokens = response.usage.output_tokens;
   const estimatedCostUsd =
-    inputTokens * OPUS_5_INPUT_COST_PER_TOKEN + outputTokens * OPUS_5_OUTPUT_COST_PER_TOKEN;
+    inputTokens * SONNET_5_INPUT_COST_PER_TOKEN + outputTokens * SONNET_5_OUTPUT_COST_PER_TOKEN;
 
   const textBlock = response.content.find((block) => block.type === 'text');
   if (!textBlock || textBlock.type !== 'text') {
