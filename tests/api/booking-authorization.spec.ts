@@ -21,6 +21,22 @@ test.describe('Booking authorization', () => {
     expect(response.status()).toBe(403);
   });
 
+  test('PATCH /booking/{id} rejects requests without a token', async ({ createBooking, client }) => {
+    const { body: created } = await createBooking({ firstname: 'Auth', lastname: 'Guard' });
+
+    const response = await client.partialUpdateBooking(created.bookingid, { totalprice: 999 });
+
+    expect(response.status()).toBe(403);
+  });
+
+  test('PATCH /booking/{id} rejects requests with an invalid token', async ({ createBooking, client }) => {
+    const { body: created } = await createBooking({ firstname: 'Auth', lastname: 'Guard' });
+
+    const response = await client.partialUpdateBooking(created.bookingid, { totalprice: 999 }, 'not-a-real-token');
+
+    expect(response.status()).toBe(403);
+  });
+
   test('DELETE /booking/{id} rejects requests without a token', async ({ createBooking, client }) => {
     const { body: created } = await createBooking({ firstname: 'Auth', lastname: 'Guard' });
 
