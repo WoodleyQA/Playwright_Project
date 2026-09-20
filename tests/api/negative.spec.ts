@@ -70,6 +70,28 @@ test.describe('POST /booking - edge cases', () => {
     expect(response.status()).toBe(200);
     expect(body.booking).toEqual(sampleBooking(overrides));
   });
+
+  test('a missing bookingdates object crashes the handler, like other missing fields', async ({ client }) => {
+    const { bookingdates, ...rest } = sampleBooking();
+
+    const response = await client.createBookingRaw(rest);
+
+    expect(response.status()).toBe(500);
+  });
+
+  test('non-date-string bookingdates values are silently coerced, not rejected', async ({ client, token }) => {
+    const payload = { ...sampleBooking(), bookingdates: { checkin: 'not-a-date', checkout: 'also-not-a-date' } };
+
+    const response = await client.createBookingRaw(payload);
+
+    expect(response.status()).toBe(200);
+    const body = await response.json();
+    // Coerced via `new Date('not-a-date')`, which produces an Invalid Date -
+    // formatted here as this fixed nonsense string rather than an error.
+    expect(body.booking.bookingdates).toEqual({ checkin: '0NaN-aN-aN', checkout: '0NaN-aN-aN' });
+
+    await client.deleteBooking(body.bookingid, token);
+  });
 });
 
 test.describe('Booking mutation without a token', () => {
