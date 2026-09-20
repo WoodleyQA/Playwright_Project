@@ -78,4 +78,14 @@ test.describe('Data persistence', () => {
     const getResponse = await client.getBooking(created.bookingid);
     expect(getResponse.status()).toBe(404);
   });
+
+  test('deleting the same booking twice is not idempotent', async ({ createBooking, client, token }) => {
+    const { body: created } = await createBooking({ firstname: 'Persist', lastname: 'DeleteTwice' });
+
+    const firstDelete = await client.deleteBooking(created.bookingid, token);
+    expect(firstDelete.status()).toBe(201);
+
+    const secondDelete = await client.deleteBooking(created.bookingid, token);
+    expect(secondDelete.status()).not.toBe(201);
+  });
 });
