@@ -86,6 +86,21 @@ test.describe('Booking API', () => {
     });
   });
 
+  test.describe('PATCH /booking/{id}', () => {
+    test('partially updates a booking, leaving other fields untouched', async ({ createBooking, client, token }) => {
+      const { body: created } = await createBooking();
+
+      const response = await client.partialUpdateBooking(created.bookingid, { totalprice: 999 }, token);
+
+      expect(response.status()).toBe(200);
+      const expected = { ...created.booking, totalprice: 999 };
+      await expect(response.json()).resolves.toEqual(expected);
+
+      const getResponse = await client.getBooking(created.bookingid);
+      await expect(getResponse.json()).resolves.toEqual(expected);
+    });
+  });
+
   test.describe('DELETE /booking/{id}', () => {
     test('deletes the booking when authenticated, and it becomes unretrievable', async ({
       createBooking,
