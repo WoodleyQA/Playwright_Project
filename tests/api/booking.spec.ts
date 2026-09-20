@@ -48,6 +48,24 @@ test.describe('Booking API', () => {
       const ids: BookingId[] = await response.json();
       expect(ids.length).toBe(0);
     });
+
+    test('filters booking ids by checkin/checkout date range', async ({ createBooking, client }) => {
+      const { body: created } = await createBooking({
+        firstname: 'DateRange',
+        lastname: 'Filter',
+        bookingdates: { checkin: '2030-05-10', checkout: '2030-05-20' },
+      });
+
+      const included = await client.getBookingIds({ checkin: '2030-05-01', checkout: '2030-05-20' });
+      const includedIds: BookingId[] = await included.json();
+      expect(includedIds.some((entry) => entry.bookingid === created.bookingid)).toBe(true);
+
+      // checkin is matched as strictly after the given date, so filtering on
+      // the booking's own checkin date excludes it.
+      const excluded = await client.getBookingIds({ checkin: '2030-05-10' });
+      const excludedIds: BookingId[] = await excluded.json();
+      expect(excludedIds.some((entry) => entry.bookingid === created.bookingid)).toBe(false);
+    });
   });
 
   test.describe('GET /booking/{id}', () => {
