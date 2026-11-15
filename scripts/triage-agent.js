@@ -234,10 +234,29 @@ async function main() {
 
   const auditLog = loadAuditLog();
 
+  // A wide outage (e.g. a site change breaking every UI test) can produce dozens
+  // of failures; triaging each one costs an API call, so cap it and say so.
+  const MAX_TRIAGED = 10;
+  const toTriage = failures.slice(0, MAX_TRIAGED);
+  if (failures.length > toTriage.length) {
+    console.log(
+      `${failures.length} failures found; triaging the first ${toTriage.length}. ` +
+        `A failure count this high usually points to one shared cause (environment, site change, config).`,
+    );
+  }
+
   const client = new Anthropic({ apiKey });
-  for (const failure of failures) {
-    const result = await classifyFailure(client, failure, auditLog);
-    printTriageNote(failure, result);
+  for (const failure of toTriage) {
+    try {
+      const result = await classifyFailure(client, failure, auditLog);
+      printTriageNote(failure, result);
+    } catch (error) {
+      // Triage is advisory. If the API is unavailable (no credits, outage,
+      // rate limit), say so once and stop rather than failing the CI step
+      // on top of the test failures it is meant to explain.
+      console.log(`Triage unavailable, skipping the rest: ${error.message}`);
+      return;
+    }
   }
 }
 

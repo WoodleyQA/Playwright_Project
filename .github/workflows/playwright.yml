@@ -45,13 +45,12 @@ jobs:
           path: ~/.cache/ms-playwright
           key: playwright-browsers-${{ runner.os }}-${{ steps.playwright-version.outputs.version }}
 
+      # Always run the install, even on a cache hit. It is a fast no-op when
+      # the cached browsers are complete, and repairs them when they are not
+      # (a partial cache restore left Firefox without its lock file and failed
+      # every Firefox test with ENOENT at launch).
       - name: Install Playwright browsers
-        if: steps.playwright-cache.outputs.cache-hit != 'true'
         run: npx playwright install --with-deps
-
-      - name: Install Playwright OS dependencies
-        if: steps.playwright-cache.outputs.cache-hit == 'true'
-        run: npx playwright install-deps
 
       - name: Run smoke tests
         run: npm run test:smoke
@@ -67,6 +66,7 @@ jobs:
       # This is expected, not a bug.
       - name: Failure triage
         if: failure()
+        continue-on-error: true
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: |
@@ -114,13 +114,12 @@ jobs:
           path: ~/.cache/ms-playwright
           key: playwright-browsers-${{ runner.os }}-${{ steps.playwright-version.outputs.version }}
 
+      # Always run the install, even on a cache hit. It is a fast no-op when
+      # the cached browsers are complete, and repairs them when they are not
+      # (a partial cache restore left Firefox without its lock file and failed
+      # every Firefox test with ENOENT at launch).
       - name: Install Playwright browsers
-        if: steps.playwright-cache.outputs.cache-hit != 'true'
         run: npx playwright install --with-deps
-
-      - name: Install Playwright OS dependencies
-        if: steps.playwright-cache.outputs.cache-hit == 'true'
-        run: npx playwright install-deps
 
       - name: Run full regression suite
         run: npm test
@@ -136,6 +135,7 @@ jobs:
       # This is expected, not a bug.
       - name: Failure triage
         if: failure()
+        continue-on-error: true
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: |
