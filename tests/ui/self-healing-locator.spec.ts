@@ -33,6 +33,7 @@ import fs from 'fs';
 import path from 'path';
 import { AdminLoginPage } from '../../pages/AdminLoginPage';
 import { AdminDashboardPage } from '../../pages/AdminDashboardPage';
+import { UI_ADMIN } from '../../utils/credentials';
 
 // The LLM's answer is only known at runtime, but Playwright's getByRole()
 // takes a closed union of ARIA role strings - this narrows the JSON-parsed
@@ -298,8 +299,8 @@ test.describe('Self-healing locator (proof of concept)', () => {
     const dashboard = new AdminDashboardPage(page);
 
     await login.open();
-    await login.usernameInput.fill('admin');
-    await login.passwordInput.fill('password');
+    await login.usernameInput.fill(UI_ADMIN.username);
+    await login.passwordInput.fill(UI_ADMIN.password);
 
     const testName = testInfo.title;
     const elementDescription = 'the button that submits the admin login form (logs the user in)';

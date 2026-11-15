@@ -2,6 +2,7 @@ import { APIResponse, test as base, expect } from '@playwright/test';
 import { ApiClient } from '../../api/ApiClient';
 import { Booking, CreateBookingResponse } from '../../api/types';
 import { sampleBooking } from './testData';
+import { API_ADMIN } from '../../utils/credentials';
 
 type CreatedBooking = { response: APIResponse; body: CreateBookingResponse };
 
@@ -17,7 +18,7 @@ export const test = base.extend<ApiFixtures>({
   },
 
   token: async ({ client }, use) => {
-    await use(await client.createToken('admin', 'password123'));
+    await use(await client.createToken(API_ADMIN.username, API_ADMIN.password));
   },
 
   // Creates a booking via the existing ApiClient and tracks its id. Teardown

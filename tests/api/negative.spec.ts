@@ -1,5 +1,6 @@
 import { expect, test } from './fixtures';
 import { ApiClient } from '../../api/ApiClient';
+import { API_ADMIN } from '../../utils/credentials';
 import { sampleBooking } from './testData';
 
 test.describe('POST /auth - negative cases', () => {
@@ -21,7 +22,7 @@ test.describe('POST /auth - negative cases', () => {
   test('an invalid password returns no token', async ({ request }) => {
     const client = new ApiClient(request);
 
-    const response = await client.authenticate('admin', 'not-the-real-password');
+    const response = await client.authenticate(API_ADMIN.username, 'not-the-real-password');
     const body = await response.json();
 
     expect(response.status()).toBe(200);

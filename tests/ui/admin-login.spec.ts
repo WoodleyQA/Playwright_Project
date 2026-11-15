@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { UI_ADMIN } from '../../utils/credentials';
 import { AdminLoginPage } from '../../pages/AdminLoginPage';
 import { AdminDashboardPage } from '../../pages/AdminDashboardPage';
 
@@ -8,7 +9,7 @@ test.describe('Admin login', () => {
     const dashboard = new AdminDashboardPage(page);
     await login.open();
 
-    await login.login('admin', 'password');
+    await login.login(UI_ADMIN.username, UI_ADMIN.password);
 
     await expect(page).toHaveURL(/\/admin\/rooms/);
     await expect(dashboard.roomNumberColumnHeader).toBeVisible();
@@ -18,7 +19,7 @@ test.describe('Admin login', () => {
     const login = new AdminLoginPage(page);
     await login.open();
 
-    await login.login('admin', 'wrong-password');
+    await login.login(UI_ADMIN.username, 'wrong-password');
 
     await expect(login.errorAlert).toBeVisible();
     await expect(page).toHaveURL(/\/admin$/);
