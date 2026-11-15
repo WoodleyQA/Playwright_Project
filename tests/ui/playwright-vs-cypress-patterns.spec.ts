@@ -7,10 +7,15 @@
 import { test, expect } from '@playwright/test';
 import { ReservationPage } from '../../pages/ReservationPage';
 import { generateBookingDates } from '../../utils/dateHelpers';
+import { skipIfReservationBackendDown } from '../../utils/upstream';
 
 const DOUBLE_ROOM_ID = 2;
 
 test.describe('Playwright auto-retrying locator pattern', () => {
+  test.beforeEach(async ({ request }) => {
+    await skipIfReservationBackendDown(request);
+  });
+
   test('waits for a confirmation message that only appears after a network call resolves', async ({ page }) => {
     const { checkin, checkout } = generateBookingDates();
     const reservation = new ReservationPage(page);

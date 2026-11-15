@@ -3,11 +3,16 @@ import { ReservationPage } from '../../pages/ReservationPage';
 import { AdminLoginPage } from '../../pages/AdminLoginPage';
 import { AdminDashboardPage } from '../../pages/AdminDashboardPage';
 import { generateBookingDates, generateInvertedBookingDates } from '../../utils/dateHelpers';
+import { skipIfReservationBackendDown } from '../../utils/upstream';
 
 const SINGLE_ROOM_ID = 1;
 const SUITE_ROOM_ID = 3;
 
 test.describe('Reservation form validation', () => {
+  test.beforeEach(async ({ request }) => {
+    await skipIfReservationBackendDown(request);
+  });
+
   test('blocks submission when required guest fields are blank', async ({ page }) => {
     const { checkin, checkout } = generateBookingDates();
     const reservation = new ReservationPage(page);

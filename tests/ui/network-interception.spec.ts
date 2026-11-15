@@ -7,10 +7,15 @@
 import { test, expect } from '@playwright/test';
 import { ReservationPage } from '../../pages/ReservationPage';
 import { generateBookingDates } from '../../utils/dateHelpers';
+import { skipIfReservationBackendDown } from '../../utils/upstream';
 
 const SINGLE_ROOM_ID = 1;
 
 test.describe('Network interception', () => {
+  test.beforeEach(async ({ request }) => {
+    await skipIfReservationBackendDown(request);
+  });
+
   test('a failed booking request fails silently, with no visible error state', async ({ page }) => {
     await page.route('**/api/booking', (route) => {
       if (route.request().method() === 'POST') {

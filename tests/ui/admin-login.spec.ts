@@ -3,7 +3,7 @@ import { AdminLoginPage } from '../../pages/AdminLoginPage';
 import { AdminDashboardPage } from '../../pages/AdminDashboardPage';
 
 test.describe('Admin login', () => {
-  test('logs in with valid credentials and reaches the admin dashboard', async ({ page }) => {
+  test('logs in with valid credentials and reaches the admin dashboard', { tag: '@smoke' }, async ({ page }) => {
     const login = new AdminLoginPage(page);
     const dashboard = new AdminDashboardPage(page);
     await login.open();

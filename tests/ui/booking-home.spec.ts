@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { BookingHomePage } from '../../pages/BookingHomePage';
 import { ReservationPage } from '../../pages/ReservationPage';
+import { skipIfReservationBackendDown } from '../../utils/upstream';
 
 const ROOMS = [
   { name: 'Single', price: '£100' },
@@ -36,7 +37,8 @@ test.describe('Shady Meadows B&B homepage', () => {
     await expect(page.getByRole('heading', { name: "This page couldn't load" })).toHaveCount(0);
   });
 
-  test('navigates from a room listing to its reservation page', async ({ page }) => {
+  test('navigates from a room listing to its reservation page', async ({ page, request }) => {
+    await skipIfReservationBackendDown(request);
     const home = new BookingHomePage(page);
     const reservation = new ReservationPage(page);
     await home.open();
