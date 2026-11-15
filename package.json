@@ -1,7 +1,7 @@
 {
   "name": "playwright_project",
   "version": "1.0.0",
-  "description": "This project uses Playwright to test the restful-booker UI demo and REST API",
+  "description": "Playwright + TypeScript UI and API test automation (Page Object Model, smoke/regression CI gating, LLM-assisted triage and self-healing locators)",
   "main": "index.js",
   "devDependencies": {
     "@anthropic-ai/sdk": "^0.120.0",
@@ -19,9 +19,9 @@
     "type": "git",
     "url": "git+https://github.com/WoodleyQA/Playwright_Project.git"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "keywords": ["playwright", "typescript", "test-automation", "api-testing", "ci"],
+  "author": "Stanley Woodley",
+  "license": "MIT",
   "type": "commonjs",
   "bugs": {
     "url": "https://github.com/WoodleyQA/Playwright_Project/issues"

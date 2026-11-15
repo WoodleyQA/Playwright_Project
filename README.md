@@ -22,7 +22,7 @@ Same instinct that drives [eval-harness](https://github.com/WoodleyQA/eval-harne
 
 **UI** — [automationintesting.online](https://automationintesting.online), a booking demo site. Covers the homepage, submitting a reservation, and admin login, using Page Objects to keep locators and interactions out of the test files themselves.
 
-**API** — [restful-booker](https://restful-booker.herokuapp.com), a standalone REST API for the same domain (bookings). Full CRUD coverage — auth token flow, create/read/update/delete on bookings, and checks that auth-protected endpoints actually reject unauthenticated requests.
+**API** — [restful-booker](https://restful-booker.herokuapp.com), a standalone REST API for the same domain (bookings). Full CRUD coverage (auth token flow, create/read/update/partial-update/delete on bookings, query and date-range filtering), checks that auth-protected endpoints actually reject unauthenticated requests, schema and contract validation, and a concurrent-write race check on booking updates.
 
 Worth noting: these are two separate demo projects by the same author, not one app tested two ways. They share a booking-domain theme, which is why they pair well here, but the UI and API suites aren't hitting the same backend.
 
@@ -34,7 +34,7 @@ api/         Request client + types for API tests
 utils/       Shared test helpers (e.g. collision-safe date-range generation)
 tests/ui/    UI test specs
 tests/api/   API test specs, plus fixtures.ts (booking create/cleanup fixture)
-scripts/     Standalone tooling (failure triage agent)
+scripts/     Standalone tooling (failure triage agent, flaky-test report)
 ```
 
 ## Running it
@@ -49,18 +49,18 @@ npx playwright test
 
 `.github/workflows/playwright.yml` runs two separate jobs instead of one:
 
-- **`smoke`** — a small, deliberately-chosen 3-test subset tagged `@smoke` (`npm run test:smoke`, i.e. `playwright test --grep @smoke`): one UI booking creation (`booking-reservation.spec.ts`), one API create-then-read round trip (`contract.spec.ts`'s "a created booking is immediately retrievable with the same data"), and one auth check (`auth.spec.ts`'s "returns a token for valid credentials"). Together they prove the core flow works end-to-end — a real booking can be created through the UI, the API's create/read cycle is consistent, and authentication issues a token — without running anything close to the full suite.
-- **`regression`** — the full 94-test suite (`npm test`), unchanged.
+- **`smoke`** — a small, deliberately-chosen subset of 3 tests tagged `@smoke` (5 runs, since the UI test runs in all three browsers) (`npm run test:smoke`, i.e. `playwright test --grep @smoke`): one UI booking creation (`booking-reservation.spec.ts`), one API create-then-read round trip (`contract.spec.ts`'s "a created booking is immediately retrievable with the same data"), and one auth check (`auth.spec.ts`'s "returns a token for valid credentials"). Together they prove the core flow works end-to-end — a real booking can be created through the UI, the API's create/read cycle is consistent, and authentication issues a token — without running anything close to the full suite.
+- **`regression`** — the full suite (`npm test`): every API test plus every UI test in chromium, firefox and webkit, unchanged.
 
-**Gating rationale:** `smoke` runs on every push and pull request to `main` and is the actual merge gate — it's fast (a handful of tests, not 94) and cheap enough to block every commit without slowing anyone down. `regression` does **not** run on pull requests anymore; it only runs after a merge lands on `main` (`push`) and on a nightly schedule (`0 2 * * *`). Full regression is slower and doesn't need to gate every commit — running it post-merge and nightly still catches anything the smoke subset didn't cover, just before the next release rather than before every single PR.
+**Gating rationale:** `smoke` runs on every push and pull request to `main` and is the actual merge gate — it's fast (a handful of runs, not the full suite) and cheap enough to block every commit without slowing anyone down. `regression` does **not** run on pull requests anymore; it only runs after a merge lands on `main` (`push`) and on a nightly schedule (`0 2 * * *`). Full regression is slower and doesn't need to gate every commit — running it post-merge and nightly still catches anything the smoke subset didn't cover, just before the next release rather than before every single PR.
 
 This means a PR can merge on smoke passing alone; a real regression only surfaces after the merge (or overnight), rather than blocking the PR itself.
 
 ## Self-healing locator proof of concept (requires ANTHROPIC_API_KEY)
 
-`tests/ui/self-healing-locator.spec.ts` is the one test in this suite that makes a live call to the Anthropic API — everything else here only talks to restful-booker or automationintesting.online. It intentionally uses a broken locator, catches the resulting Playwright timeout, sends an accessibility snapshot of the page to Claude, and retries with the role/name Claude suggests.
+`tests/ui/self-healing-locator.spec.ts` is the one test in this suite that makes a live call to the Anthropic API — everything else here only talks to restful-booker or automationintesting.online. It intentionally uses a broken locator, catches the resulting Playwright timeout, sends an accessibility snapshot of the page to Claude, and tries the ranked role/name candidates Claude returns until one works.
 
-On a successful run it caches the target locator's accessibility snapshot to `self-heal/locator-cache.json`, keyed by test name and locator source string (the entry is invalidated if the locator string changes). On a heal, both that last-known-good snapshot and the current page snapshot are sent to Claude, which is asked to judge whether a candidate is the *same* element as before — not just the closest match right now — and to return a confidence score plus rationale alongside the role/name. A heal below `CONFIDENCE_THRESHOLD` (0.7) throws instead of clicking a low-confidence guess. Every attempt — healed, rejected, or failed — is appended to a JSON audit log at `self-heal/audit-log.json`.
+On a successful run it caches the target locator's accessibility snapshot to `self-heal/locator-cache.json`, keyed by test name and locator source string (the entry is invalidated if the locator string changes). On a heal, both that last-known-good snapshot and the current page snapshot are sent to Claude, which is asked to judge whether a candidate is the *same* element as before — not just the closest match right now — and to return a confidence score plus rationale alongside the role/name. Claude returns 2 to 3 candidates ranked by confidence. They are tried in that order until one clicks, and any candidate below `CONFIDENCE_THRESHOLD` (0.7) is skipped, so if none clears the bar the test throws instead of clicking a low-confidence guess. A heal is only written back to the cache after the test confirms the click landed on the right page (a wrong-but-clickable "Logout" button once poisoned the cache, which is why). Every candidate attempted, healed, rejected, or failed, is appended to a JSON audit log at `self-heal/audit-log.json`, along with the latency, token counts and estimated cost of the model call.
 
 To run it, set `ANTHROPIC_API_KEY` in your environment:
 
@@ -69,11 +69,11 @@ export ANTHROPIC_API_KEY=sk-ant-...
 npx playwright test tests/ui/self-healing-locator.spec.ts
 ```
 
-Without a key set, the test **skips** rather than failing or running against a mocked response — CI does not have this key, so it skips there too. See the comment block at the top of the file for why: a mocked LLM response would only prove the retry plumbing works, not that a real model can actually resolve a broken locator, which is the point of the test. It's also explicitly a proof of concept, not a pattern to copy into the rest of the suite — no fallback chains beyond a single candidate, and every self-healing attempt still adds real API latency and cost on top of the normal Playwright action.
+Without a key set, the test **skips** rather than failing or running against a mocked response — CI does not have this key, so it skips there too. See the comment block at the top of the file for why: a mocked LLM response would only prove the retry plumbing works, not that a real model can actually resolve a broken locator, which is the point of the test. It's also explicitly a proof of concept, not a pattern to copy into the rest of the suite: every self-healing attempt still adds real API latency and cost on top of the normal Playwright action.
 
 ## Failure triage agent (requires ANTHROPIC_API_KEY)
 
-`scripts/triage-agent.js` sends a test failure's error output to Claude and classifies it as a `regression`, `environmental flake`, or `stale test`, with confidence, reasoning, and a suggested next step. It's a standalone CLI tool, not part of the Playwright suite itself — same `ANTHROPIC_API_KEY` requirement as the self-healing locator proof of concept.
+`scripts/triage-agent.js` sends a test failure's error output to Claude and classifies it as a `regression`, `environmental flake`, or `stale test`, with confidence, reasoning, and a suggested next step. It's a standalone CLI tool, not part of the Playwright suite itself, and the same `ANTHROPIC_API_KEY` requirement applies as for the self-healing locator proof of concept. When a failure involves a self-healed locator, it reads `self-heal/audit-log.json` and uses that context in its classification. In CI it runs only when a job fails, with its output written to the run's step summary (this needs an `ANTHROPIC_API_KEY` repository secret; without one it has nothing to call).
 
 ```bash
 export ANTHROPIC_API_KEY=sk-ant-...
