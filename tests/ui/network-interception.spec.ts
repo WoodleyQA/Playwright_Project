@@ -44,8 +44,8 @@ test.describe('Network interception', () => {
     // validation-style alert, no crash. Documenting the actual (silent)
     // outcome rather than asserting the error state a well-behaved app
     // would show here.
-    await expect(reservation.confirmationHeading).not.toBeVisible();
-    await expect(reservation.validationErrors).not.toBeVisible();
+    await expect(reservation.confirmationHeading).toBeHidden();
+    await expect(reservation.validationErrors).toBeHidden();
     await expect(reservation.reserveNowButton).toBeVisible();
     await expect(reservation.reserveNowButton).toBeEnabled();
     await expect(reservation.firstNameInput).toHaveValue('Playwright');

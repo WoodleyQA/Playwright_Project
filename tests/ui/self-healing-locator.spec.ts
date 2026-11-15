@@ -419,6 +419,7 @@ test.describe('Self-healing locator (proof of concept)', () => {
           `Self-heal found no usable candidate - tried ${attempts.length} of ${candidates.length} ` +
             `candidate(s) against the ${CONFIDENCE_THRESHOLD} confidence threshold, and none both cleared it ` +
             `and clicked successfully. Attempts: ${attemptSummary}`,
+          { cause: error },
         );
       }
 

@@ -45,6 +45,13 @@ npx playwright install
 npx playwright test
 ```
 
+Static checks (both run in CI as separate jobs, before any browser starts):
+
+```bash
+npm run typecheck   # strict TypeScript over pages, api, utils and specs
+npm run lint        # typescript-eslint + eslint-plugin-playwright
+```
+
 ## Smoke vs. regression: one gate, one safety net
 
 `.github/workflows/playwright.yml` runs two separate jobs instead of one:

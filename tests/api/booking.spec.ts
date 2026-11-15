@@ -46,7 +46,7 @@ test.describe('Booking API', () => {
 
       expect(response.status()).toBe(200);
       const ids: BookingId[] = await response.json();
-      expect(ids.length).toBe(0);
+      expect(ids).toHaveLength(0);
     });
 
     test('filters booking ids by checkin/checkout date range', async ({ createBooking, client }) => {

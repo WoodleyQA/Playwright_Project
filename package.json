@@ -5,9 +5,14 @@
   "main": "index.js",
   "devDependencies": {
     "@anthropic-ai/sdk": "^0.120.0",
+    "@eslint/js": "^10.0.1",
     "@playwright/test": "^1.62.1",
     "@types/node": "^26.2.0",
-    "typescript": "^6.0.3"
+    "eslint": "^10.15.0",
+    "eslint-plugin-playwright": "^2.12.2",
+    "globals": "^17.14.0",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.72.2"
   },
   "scripts": {
     "test": "playwright test",
@@ -15,7 +20,8 @@
     "test:ui": "playwright test --project=chromium --project=firefox --project=webkit",
     "test:api": "playwright test --project=api",
     "triage": "node scripts/triage-agent.js",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint ."
   },
   "repository": {
     "type": "git",

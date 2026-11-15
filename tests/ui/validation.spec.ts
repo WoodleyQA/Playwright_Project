@@ -26,7 +26,7 @@ test.describe('Reservation form validation', () => {
     const messages = await reservation.validationErrorMessages();
     expect(messages.some((m) => m.toLowerCase().includes('firstname'))).toBe(true);
     expect(messages.some((m) => m.toLowerCase().includes('lastname'))).toBe(true);
-    await expect(reservation.confirmationHeading).not.toBeVisible();
+    await expect(reservation.confirmationHeading).toBeHidden();
   });
 
   test('blocks submission when the email is not well-formed', async ({ page }) => {
@@ -46,7 +46,7 @@ test.describe('Reservation form validation', () => {
     await expect(reservation.validationErrors).toBeVisible();
     const messages = await reservation.validationErrorMessages();
     expect(messages.some((m) => m.toLowerCase().includes('email'))).toBe(true);
-    await expect(reservation.confirmationHeading).not.toBeVisible();
+    await expect(reservation.confirmationHeading).toBeHidden();
   });
 
   // Real-site finding: the phone field is only length-checked (11-21 chars)
@@ -93,7 +93,7 @@ test.describe('Reservation form validation', () => {
     });
     await reservation.submit();
 
-    await expect(reservation.confirmationHeading).not.toBeVisible();
+    await expect(reservation.confirmationHeading).toBeHidden();
     // Note: the DOM renders this heading with a typographic apostrophe
     // (’), not a straight one, hence the regex instead of a literal.
     await expect(page.getByRole('heading', { name: /This page couldn.t load/ })).toBeVisible();
@@ -110,6 +110,6 @@ test.describe('Admin login validation', () => {
 
     await expect(login.errorAlert).toBeVisible();
     await expect(page).toHaveURL(/\/admin$/);
-    await expect(dashboard.roomNumberColumnHeader).not.toBeVisible();
+    await expect(dashboard.roomNumberColumnHeader).toBeHidden();
   });
 });
