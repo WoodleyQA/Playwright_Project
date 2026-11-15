@@ -13,8 +13,13 @@ export class BookingHomePage extends BasePage {
     super(page);
     this.heading = page.getByRole('heading', { name: 'Welcome to Shady Meadows B&B' });
     this.bookingWidget = page.locator('.booking-card');
-    this.checkInInput = this.bookingWidget.locator('input').nth(0);
-    this.checkOutInput = this.bookingWidget.locator('input').nth(1);
+    // The widget's "Check In" / "Check Out" labels are not associated with
+    // their inputs (each textbox's accessible name is its current date value),
+    // so getByLabel is not available. The widget contains exactly these two
+    // textboxes, in order.
+    const dateInputs = this.bookingWidget.getByRole('textbox');
+    this.checkInInput = dateInputs.first();
+    this.checkOutInput = dateInputs.last();
     this.checkAvailabilityButton = this.bookingWidget.getByRole('button', { name: 'Check Availability' });
   }
 

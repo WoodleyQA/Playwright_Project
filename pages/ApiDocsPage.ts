@@ -19,12 +19,11 @@ export class ApiDocsPage extends BasePage {
   // The page renders its content client-side via RequireJS (fetches
   // main.js, api data, and Handlebars templates, then populates
   // #project/#sidenav). The 'load' event fires well before that
-  // finishes, so wait for the network to settle and for the rendered
-  // content itself before the caller starts asserting against it.
+  // finishes, so wait for the rendered content itself (web-first, no
+  // network-idle heuristic) before the caller starts asserting against it.
   // Callers that arrive here via in-app navigation (rather than open())
   // must call this too, since only a fresh page.goto() waits on 'load'.
   async waitUntilLoaded() {
-    await this.page.waitForLoadState('networkidle');
     await this.projectTitle.waitFor({ state: 'visible' });
     await this.sidenav.getByRole('link').first().waitFor({ state: 'visible' });
   }
