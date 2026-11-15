@@ -16,6 +16,26 @@ permissions:
   contents: read
 
 jobs:
+  # Static check: strict TypeScript over the page objects, API client, utils
+  # and specs. Fails fast and cheap, before any browser starts.
+  typecheck:
+    if: github.event_name != 'schedule'
+    timeout-minutes: 10
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type check
+        run: npm run typecheck
+
   # Fast merge gate: runs the small @smoke subset on every push and PR to
   # main. Does not run on the nightly schedule - that's regression's job.
   smoke:

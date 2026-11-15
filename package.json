@@ -6,20 +6,28 @@
   "devDependencies": {
     "@anthropic-ai/sdk": "^0.120.0",
     "@playwright/test": "^1.62.1",
-    "@types/node": "^26.2.0"
+    "@types/node": "^26.2.0",
+    "typescript": "^6.0.3"
   },
   "scripts": {
     "test": "playwright test",
     "test:smoke": "playwright test --grep @smoke",
     "test:ui": "playwright test --project=chromium --project=firefox --project=webkit",
     "test:api": "playwright test --project=api",
-    "triage": "node scripts/triage-agent.js"
+    "triage": "node scripts/triage-agent.js",
+    "typecheck": "tsc --noEmit"
   },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/WoodleyQA/Playwright_Project.git"
   },
-  "keywords": ["playwright", "typescript", "test-automation", "api-testing", "ci"],
+  "keywords": [
+    "playwright",
+    "typescript",
+    "test-automation",
+    "api-testing",
+    "ci"
+  ],
   "author": "Stanley Woodley",
   "license": "MIT",
   "type": "commonjs",
