@@ -34,21 +34,10 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Get installed Playwright version
-        id: playwright-version
-        run: echo "version=$(node -e "console.log(require('./package-lock.json').packages['node_modules/@playwright/test'].version)")" >> "$GITHUB_OUTPUT"
-
-      - name: Cache Playwright browser binaries
-        id: playwright-cache
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/ms-playwright
-          key: playwright-browsers-${{ runner.os }}-${{ steps.playwright-version.outputs.version }}
-
-      # Always run the install, even on a cache hit. It is a fast no-op when
-      # the cached browsers are complete, and repairs them when they are not
-      # (a partial cache restore left Firefox without its lock file and failed
-      # every Firefox test with ENOENT at launch).
+      # Browsers are deliberately not cached: a restored cache left Firefox
+      # without its lock file and failed every Firefox test with ENOENT at
+      # launch, and the install step considered it complete. A fresh install
+      # costs about a minute and cannot go stale.
       - name: Install Playwright browsers
         run: npx playwright install --with-deps
 
@@ -103,21 +92,10 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Get installed Playwright version
-        id: playwright-version
-        run: echo "version=$(node -e "console.log(require('./package-lock.json').packages['node_modules/@playwright/test'].version)")" >> "$GITHUB_OUTPUT"
-
-      - name: Cache Playwright browser binaries
-        id: playwright-cache
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/ms-playwright
-          key: playwright-browsers-${{ runner.os }}-${{ steps.playwright-version.outputs.version }}
-
-      # Always run the install, even on a cache hit. It is a fast no-op when
-      # the cached browsers are complete, and repairs them when they are not
-      # (a partial cache restore left Firefox without its lock file and failed
-      # every Firefox test with ENOENT at launch).
+      # Browsers are deliberately not cached: a restored cache left Firefox
+      # without its lock file and failed every Firefox test with ENOENT at
+      # launch, and the install step considered it complete. A fresh install
+      # costs about a minute and cannot go stale.
       - name: Install Playwright browsers
         run: npx playwright install --with-deps
 
